@@ -1,0 +1,62 @@
+QQ无法使用fcitx5的问题
+问题表现：切换输入法没反应；不管top bar输入法图标是英语还是双拼，都只能输入英文。
+解决：
+运行fcitx5-diagnose，按照提示增加几个环境变量：
+在~/.xprofile(create this file)和~/.bashrc后面加上
+export XMODIFIERS=@im=fcitx
+export QT_IM_MODULE=fcitx
+export GTK_IM_MODULE=fcitx
+在/etc/environment后面加上
+XMODIFIERS=@im=fcitx
+QT_IM_MODULE=fcitx
+GTK_IM_MODULE=fcitx
+具体是哪个文件增加的环境变量生效了没有探究。
+重启系统之后生效。
+
+
+添加字体
+把otf文件解压到~/.fonts目录下(也可以在.fonts下为该字体创建一个dir)
+然后运行命令fc-cache -fv
+注意：字体文件夹有许多，fc-cache -fv命令是否加sudo由字体存放的文件夹决定。
+例如，sudo fc-cache -fv会检查/root/.fonts，而不是/home/edgar/.fonts
+使用fc-list列举字体。
+
+
+Ubuntu22.04 + vivo tws 4只有一侧有声音
+
+机缘巧合：更新Ubuntu24.04后，声音output configuration多了几个选项，其中一个采用了Ubuntu22.04上没见过的codec方式，换上了之后耳机播放就正常了。在Ubuntu22.04上，在浏览器上找了一张Ubuntu24.04声音设置界面的截图（懒的再装24.04了），查到一种Ubuntu24上的编码方式（mSBC）喂给Kimi. 注意：解决问题的编码方式其实不是mSBC, 而是SBC-XQ. 原来是vivo tws 4耳机只支持这种codec, 而Ubuntu22.04默认的PulseAudio不支持，而Ubuntu24.04换成了PipeWire支持，所以在Ubuntu22.04上换PipeWire即可。
+
+解决：https://www.kimi.com/chat/d2aoqdt96bke8768d33g 对话记录：
+Q: 我的蓝牙耳机在ubuntu22.04上只有一侧有声音，在ubuntu24.04中可以通过声音output configuration中选择codec mSBC来解决这个问题，但是在ubuntu22.04上没有这个选项，如何解决？
+A: 实际上进行到第三步就行。
+在 Ubuntu 22.04 上，默认的 PulseAudio 并不支持 mSBC 编解码器（而 Ubuntu 24.04 已改用 PipeWire，因此可以直接在 GUI 里选）。不过，你可以通过把 22.04 的音频子系统也换成 PipeWire 来获得 mSBC 选项，步骤如下：
+
+1. 安装 PipeWire 及其蓝牙插件  
+   ```bash
+   sudo apt update
+   sudo apt install pipewire pipewire-audio-client-libraries \
+                    libspa-0.2-bluetooth libspa-0.2-dev \
+                    wireplumber
+   ```
+
+2. 停用 PulseAudio，启用 PipeWire  
+   ```bash
+   systemctl --user --now disable pulseaudio.service pulseaudio.socket
+   systemctl --user --now enable  pipewire{,-pulse}.{socket,service}
+   systemctl --user --now enable  wireplumber.service
+   ```
+
+3. 确认切换成功  
+   ```bash
+   pactl info | grep "Server Name"
+   # 应看到类似 “Server Name: PulseAudio (on PipeWire …)”
+   ```
+
+4. 重新配对蓝牙耳机  
+   删除旧配对，重新扫描并连接耳机。
+
+5. 打开 pavucontrol（`sudo apt install pavucontrol`），在「Configuration」标签页为你的耳机选择 **Headset Head Unit (HSP/HFP)** 或 **Hands-Free**，然后在「Output Devices」里就能看到 **codec: mSBC** 选项；选中后通常即可解决单侧无声或音质差的问题。
+
+如果你不想动系统级组件，也可以尝试升级内核到 ≥5.15（22.04 默认就是 5.15 系列），并确保已安装 `linux-modules-extra-$(uname -r)`，因为较新的内核+固件对蓝牙 mSBC 支持更好。
+
+完成上述操作后，重启系统即可在 Ubuntu 22.04 上像 24.04 一样使用 mSBC 编解码器，从而解决蓝牙耳机只有一侧有声音的问题。
